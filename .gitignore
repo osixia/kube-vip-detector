@@ -1,0 +1,11 @@
+/vendor/
+/build/vendor/
+/bin/
+/kube-vip-detector
+/build/build
+/digests.txt
+/sbom.spdx.json
+
+# Local workspace used to test sibling-module changes before publication.
+/go.work
+/go.work.sum
