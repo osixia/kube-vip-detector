@@ -187,6 +187,7 @@ required; namespace and pod UID are required only for VIP detection:
 | `--port` | `9876` | VIP responder TCP port on each node |
 | `--peers` | Empty | Named IPv4/IPv6 TCP endpoints (`name=IP:port`); repeatable |
 | `--peer-label-prefix` | `kube-network-detector/peer-` | Literal prefix for each peer name |
+| `--watch-crds` | `false` | Watch namespaced VIP and Peer resources across all namespaces, in addition to static flags |
 | `--interval` | `5s` | Delay between probes and interval for local-address checks |
 | `--timeout` | `2s` | Timeout for each probe |
 | `--success-threshold` | `2` | Consecutive VIP successes identifying the same node, or peer TCP successes |
@@ -238,9 +239,93 @@ KUBE_NETWORK_DETECTOR_DRY_RUN=true \
 kube-network-detector
 ```
 
-Supply the key with `KUBE_NETWORK_DETECTOR_KEY` or `--key`. Configuration is read at
-startup; there is no configuration file or live reload. The CLI's environment
+Supply the key with `KUBE_NETWORK_DETECTOR_KEY` or `--key`. Flags and environment variables are read at
+startup; CRD targets are watched dynamically when enabled. The CLI's environment
 prefix and default label prefix are defined in [config/config.go](config/config.go).
+
+### Targets declared in Kubernetes
+
+Enable `--watch-crds` (or `KUBE_NETWORK_DETECTOR_WATCH_CRDS=true`) to discover
+`network.osixia.net/v1alpha1` resources across all namespaces. This is opt-in;
+existing flag-only deployments require no CRDs or additional permissions.
+CRD targets are added to `--vips` and `--peers`, not substituted for them.
+An initially empty target list is allowed in CRD mode.
+
+Install both namespaced CRDs and grant the detector read permissions:
+
+```bash
+kubectl apply -f docs/crds/
+kubectl wait --for=condition=Established --timeout=60s \
+  crd/vips.network.osixia.net crd/peers.network.osixia.net
+kubectl apply -f docs/examples/kubernetes/crd-reader-rbac.yaml
+```
+
+Then add `--watch-crds=true` to the combined DaemonSet's arguments and apply it.
+Use the combined deployment even when only Peer objects initially exist: CRD mode
+keeps the authenticated VIP responder running so future VIP objects work without
+another rollout. It requires the HMAC key, responder port, pod namespace and UID,
+Node `get/list/patch`, Lease `get/create/update`, and CRD `list/watch` permissions.
+All instances must use the same CRD mode, key, port and label prefixes.
+The supplied CRD schemas use the Kubernetes CEL IP library (Kubernetes 1.30+).
+
+Applications can declare targets in their own namespaces:
+
+```yaml
+apiVersion: network.osixia.net/v1alpha1
+kind: VIP
+metadata:
+  name: public-web
+  namespace: traefik
+spec:
+  address: 203.0.113.10
+---
+apiVersion: network.osixia.net/v1alpha1
+kind: Peer
+metadata:
+  name: database
+  namespace: nextcloud
+spec:
+  address: 10.0.0.20
+  port: 5432
+```
+
+Namespaces must already exist. Examples are in
+[`targets.yaml`](docs/examples/kubernetes/targets.yaml). To delegate target
+management without access to Nodes, bind the example
+[`writer Role`](docs/examples/kubernetes/crd-writer-role.yaml) in each allowed
+namespace. Readers are cluster-wide; writers can remain namespace-scoped.
+
+VIP objects use the existing IP-based labels and share one worker and Lease per
+IP, including duplicates declared by flags. Removing one declaration does not
+stop detection while another still exists. Peer objects use the label
+`<peer-label-prefix>crd.<namespace>.<name>`, for example
+`kube-network-detector/peer-crd.nextcloud.database=true`. Long identities use
+`crd.` plus the first 32 hex digits of their SHA-256 hash. The final label key is
+validated; excessively long custom prefixes can cause targets to be rejected.
+Static peer names and labels are unchanged. If a CRD generates a label already
+used for a different target, the static target takes precedence and the conflicting
+CRD is ignored with a warning. Do not deliberately reuse CRD-generated names in flags.
+
+Adds, changes and deletions reconcile without restarting the DaemonSet. Changed
+workers are canceled and joined before their labels are cleared and replacement
+workers start with fresh confirmation counters. Invalid objects are ignored with
+a warning and do not terminate other targets. API list/watch failures retain the
+last observed configuration; they never count as deletion. Initial discovery
+fails clearly if either CRD is missing or cannot be listed.
+
+Each instance cleans obsolete CRD labels on its own Node, retries API errors and
+conflicts, and preserves unrelated labels and annotations. The Node annotation
+`kube-network-detector/crd-labels` records CRD label ownership, allowing cleanup
+after an instance restarts following an offline deletion. Labels still used by
+flags are protected. Shutdown retains labels; cleanup requires an instance
+running on the affected Node with CRD mode enabled. Switching back to flag-only
+mode does not clean CRD labels automatically. Multiple detector deployments
+must not share the same Nodes and inventory annotation.
+
+Global probe settings still come from flags/environment variables; these resources
+have no per-target settings or status subresource. The HMAC key stays in the
+existing Secret. In dry-run mode neither the inventory nor labels or Leases are
+written.
 
 ### Logging
 
@@ -293,7 +378,7 @@ kubectl -n kube-network-detector rollout status daemonset/kube-network-detector
 Only one key is supported at a time. During key rotation, mismatched keys can
 cause probe failures and label removal.
 
-Removing a VIP or peer, renaming a peer, or changing a label prefix does not
+For flag-only targets, removing a VIP or peer, renaming a peer, or changing a label prefix does not
 clean up existing labels.
 After all instances use the new configuration, remove obsolete labels yourself:
 
@@ -342,6 +427,12 @@ if err != nil {
 return service.Run(ctx)
 ```
 
+For CRD discovery, set `Options.WatchCRDs = true` and use
+`detector.NewWithDynamicClient(client, dynamicClient, identity, options)` with a
+`dynamic.Interface` from `k8s.io/client-go/dynamic`. The dynamic client's timeout
+must allow long-lived watches. The existing `New` API stays unchanged for static
+targets and rejects CRD mode without a dynamic client.
+
 Import `time` alongside `detector`. `New` validates options and copies the VIP
 and peer lists without applying CLI defaults. Use a unique `PodUID` per VIP instance and
 cancel `ctx` to stop the server and workers. Run in the node network namespace
@@ -382,7 +473,7 @@ without a leading `v`. See [build/README.md](build/README.md) for details.
 VIP detection uses `list/patch` on Nodes and `get/create/update` on Leases in
 the detector namespace. Peer detection uses `get/patch` on Nodes and no Leases. No Secret or ConfigMap API permissions are required.
 Node `patch` permission covers entire Nodes; the code only changes labels for
-configured VIPs and peers.
+configured VIPs and peers, plus the CRD inventory annotation when enabled.
 
 Lease duration is 30 seconds, renewal deadline 20 seconds and retry interval
 5 seconds. When leadership ends, the Lease expires naturally rather than being

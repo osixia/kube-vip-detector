@@ -1,0 +1,17 @@
+# These namespaces must already exist. Apply docs/crds first.
+apiVersion: network.osixia.net/v1alpha1
+kind: VIP
+metadata:
+  name: public-web
+  namespace: traefik
+spec:
+  address: 203.0.113.10
+---
+apiVersion: network.osixia.net/v1alpha1
+kind: Peer
+metadata:
+  name: database
+  namespace: nextcloud
+spec:
+  address: 10.0.0.20
+  port: 5432

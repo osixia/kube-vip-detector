@@ -1,0 +1,11 @@
+# Example permissions to declare targets in one namespace.
+# Bind this Role to the desired users or ServiceAccounts with a RoleBinding.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-network-detector-target-writer
+  namespace: nextcloud
+rules:
+  - apiGroups: [network.osixia.net]
+    resources: [vips, peers]
+    verbs: [get, list, watch, create, update, patch, delete]

@@ -1,5 +1,7 @@
 # Unreleased
 
+- Add optional namespaced VIP and Peer CRDs alongside existing flags, with live target updates, VIP deduplication, namespaced peer labels, and restart-safe CRD label cleanup.
+
 - Update golang.org/x/net to v0.60.0 and build with Go 1.26.9 for HTTP/2 security fixes.
 
 - Support IPv6 VIPs with Kubernetes-safe IPv6 label keys.

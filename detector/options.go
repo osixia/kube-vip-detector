@@ -17,6 +17,7 @@ import (
 // Options configures VIP and peer probes and node label updates. New validates
 // settings for configured targets without applying defaults.
 type Options struct {
+	WatchCRDs        bool          `mapstructure:"watch-crds"`
 	Peers            []string      `mapstructure:"peers"`
 	PeerLabelPrefix  string        `mapstructure:"peer-label-prefix"`
 	VIPs             []string      `mapstructure:"vips"`
@@ -50,13 +51,13 @@ func (o Options) Validate() error {
 	if err := o.validatePeers(); err != nil {
 		return err
 	}
-	if len(o.VIPs) == 0 && len(o.Peers) == 0 {
+	if len(o.VIPs) == 0 && len(o.Peers) == 0 && !o.WatchCRDs {
 		return errors.New("at least one VIP or peer is required")
 	}
 	if o.Interval <= 0 || o.Timeout <= 0 || o.SuccessThreshold < 1 || o.FailureThreshold < 1 {
 		return errors.New("durations must be positive and thresholds must be at least 1")
 	}
-	if len(o.VIPs) == 0 {
+	if len(o.VIPs) == 0 && !o.WatchCRDs {
 		return nil
 	}
 	if o.Key == "" {
@@ -70,6 +71,16 @@ func (o Options) Validate() error {
 	// Validate the actual labels, including the encoded IPv6 suffix.
 	if o.VIPLabelPrefix == "" {
 		return errors.New("--vip-label-prefix must not be empty")
+	}
+	if o.WatchCRDs {
+		for _, key := range []string{vipLabel(o.VIPLabelPrefix, "2001:db8::1"), o.PeerLabelPrefix + "ns.peer"} {
+			if problems := validation.IsQualifiedName(key); len(problems) != 0 {
+				return fmt.Errorf("invalid CRD label prefix: %s", strings.Join(problems, "; "))
+			}
+		}
+		if o.PeerLabelPrefix == "" {
+			return errors.New("--peer-label-prefix must not be empty")
+		}
 	}
 
 	for _, ip := range o.VIPs {

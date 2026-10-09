@@ -27,7 +27,7 @@ func (d *Detector) Run(parent context.Context) error {
 	key := d.key
 	node := d.node
 
-	if len(vips) == 0 {
+	if len(vips) == 0 && !options.WatchCRDs {
 		d.runPeers(ctx)
 		return nil
 	}
@@ -59,27 +59,37 @@ func (d *Detector) Run(parent context.Context) error {
 	}()
 
 	var workers sync.WaitGroup
-	for _, ip := range vips {
-		workers.Add(1)
-		go func(ip string) {
-			defer workers.Done()
-			d.run(ctx, ip)
-		}(ip)
-	}
-
-	if len(options.Peers) != 0 {
+	workerErr := make(chan error, 1)
+	if options.WatchCRDs {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
-			d.runPeers(ctx)
+			workerErr <- d.runCRDTargets(ctx)
 		}()
+	} else {
+		for _, ip := range vips {
+			workers.Add(1)
+			go func(ip string) {
+				defer workers.Done()
+				d.run(ctx, ip)
+			}(ip)
+		}
 
+		if len(options.Peers) != 0 {
+			workers.Add(1)
+			go func() {
+				defer workers.Done()
+				d.runPeers(ctx)
+			}()
+
+		}
 	}
 
 	log.Infof("started node=%q targets=%d port=%d dryRun=%t", node, len(vips), options.Port, options.DryRun)
 	select {
 	case <-ctx.Done():
 	case err = <-serveErr:
+	case err = <-workerErr:
 	}
 
 	// Stop servers and wait for workers
