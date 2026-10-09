@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/osixia/kube-vip-detector/detector"
+	"github.com/osixia/kube-network-detector/detector"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )

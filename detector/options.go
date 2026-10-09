@@ -14,9 +14,11 @@ import (
 // Detector options
 // =============================
 
-// Options configures VIP probes and node label updates. All fields must be set
-// explicitly; New validates them without applying defaults.
+// Options configures VIP and peer probes and node label updates. New validates
+// settings for configured targets without applying defaults.
 type Options struct {
+	Peers            []string      `mapstructure:"peers"`
+	PeerLabelPrefix  string        `mapstructure:"peer-label-prefix"`
 	VIPs             []string      `mapstructure:"vips"`
 	Key              string        `mapstructure:"key"`
 	VIPLabelPrefix   string        `mapstructure:"vip-label-prefix"`
@@ -34,8 +36,8 @@ func (o Options) Validate() error {
 	seen := map[string]bool{}
 	for _, ip := range o.VIPs {
 		addr, err := netip.ParseAddr(ip)
-		if err != nil || !addr.Is4() || addr.String() != ip || addr.IsUnspecified() || addr.IsLoopback() || addr.IsMulticast() {
-			return fmt.Errorf("--vips: invalid canonical unicast IPv4: %q", ip)
+		if err != nil || addr.Is4In6() || addr.Zone() != "" || addr.IsLinkLocalUnicast() || addr.String() != ip || addr.IsUnspecified() || addr.IsLoopback() || addr.IsMulticast() {
+			return fmt.Errorf("--vips: invalid canonical unicast IPv4 or IPv6: %q", ip)
 		}
 
 		if seen[ip] {
@@ -45,6 +47,18 @@ func (o Options) Validate() error {
 		seen[ip] = true
 	}
 
+	if err := o.validatePeers(); err != nil {
+		return err
+	}
+	if len(o.VIPs) == 0 && len(o.Peers) == 0 {
+		return errors.New("at least one VIP or peer is required")
+	}
+	if o.Interval <= 0 || o.Timeout <= 0 || o.SuccessThreshold < 1 || o.FailureThreshold < 1 {
+		return errors.New("durations must be positive and thresholds must be at least 1")
+	}
+	if len(o.VIPs) == 0 {
+		return nil
+	}
 	if o.Key == "" {
 		return errors.New("HMAC key is required")
 	}
@@ -53,13 +67,15 @@ func (o Options) Validate() error {
 		return errors.New("invalid flags: port must be 1024–65535, durations must be positive, and thresholds must be at least 1")
 	}
 
-	// Prefix is literal: domain.example/vip- produces domain.example/vip-<IPv4>.
+	// Validate the actual labels, including the encoded IPv6 suffix.
 	if o.VIPLabelPrefix == "" {
 		return errors.New("--vip-label-prefix must not be empty")
 	}
 
-	if problems := validation.IsQualifiedName(o.VIPLabelPrefix + "255.255.255.255"); len(problems) != 0 {
-		return fmt.Errorf("invalid --vip-label-prefix: %s", strings.Join(problems, "; "))
+	for _, ip := range o.VIPs {
+		if problems := validation.IsQualifiedName(vipLabel(o.VIPLabelPrefix, ip)); len(problems) != 0 {
+			return fmt.Errorf("invalid --vip-label-prefix for VIP %q: %s", ip, strings.Join(problems, "; "))
+		}
 	}
 
 	key, err := hex.DecodeString(o.Key)

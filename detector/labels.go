@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 
 	"github.com/osixia/container-baseimage/log"
 	corev1 "k8s.io/api/core/v1"
@@ -43,11 +44,11 @@ func (d *Detector) reconcile(ctx context.Context, nodes []corev1.Node, ip, winne
 		}
 
 		if d.options.DryRun {
-			log.Infof("dry-run: proposed label change vip=%q node=%q action=%q label=%q", ip, node.Name, action, d.options.VIPLabelPrefix+ip)
+			log.Infof("dry-run: proposed label change vip=%q node=%q action=%q label=%q", ip, node.Name, action, vipLabel(d.options.VIPLabelPrefix, ip))
 			return nil
 		}
 
-		err := patchLabel(ctx, d.client, node, d.options.VIPLabelPrefix+ip, value)
+		err := patchLabel(ctx, d.client, node, vipLabel(d.options.VIPLabelPrefix, ip), value)
 		if err == nil {
 			log.Infof("label changed vip=%q node=%q action=%q", ip, node.Name, action)
 		}
@@ -60,7 +61,7 @@ func (d *Detector) reconcile(ctx context.Context, nodes []corev1.Node, ip, winne
 // overwriting concurrent changes. Conflicts are retried after a fresh probe/list.
 func reconcileLabelsUsing(nodes []corev1.Node, prefix, ip, winner string, patch func(corev1.Node, any) error) error {
 
-	key := prefix + ip
+	key := vipLabel(prefix, ip)
 	var target *corev1.Node
 	for i := range nodes {
 		node := nodes[i]
@@ -89,4 +90,14 @@ func reconcileLabelsUsing(nodes []corev1.Node, prefix, ip, winner string, patch 
 	}
 
 	return nil
+}
+
+// IPv4 keeps its historical label. IPv6 uses all 128 bits as 32 hexadecimal
+// digits: colons are forbidden in Kubernetes label keys.
+func vipLabel(prefix, ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err == nil && addr.Is6() {
+		return fmt.Sprintf("%sipv6-%x", prefix, addr.As16())
+	}
+	return prefix + ip
 }

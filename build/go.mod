@@ -1,6 +1,6 @@
-module github.com/osixia/kube-vip-detector/build
+module github.com/osixia/kube-network-detector/build
 
-go 1.25.0
+go 1.26.9
 
 require (
 	dagger.io/dagger v0.20.6

@@ -1,3 +1,13 @@
+# Unreleased
+
+- Update golang.org/x/net to v0.60.0 and build with Go 1.26.9 for HTTP/2 security fixes.
+
+- Support IPv6 VIPs with Kubernetes-safe IPv6 label keys.
+
+- Rename the project to kube-network-detector.
+- Add named IPv4/IPv6 TCP peers with per-node labels and automatic VIP/peer mode selection.
+- Add Node get permission for peer reconciliation.
+
 # Changelog
 
 ## 1.0.0

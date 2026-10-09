@@ -9,8 +9,8 @@ import (
 	"github.com/osixia/container-baseimage/helpers"
 	"github.com/osixia/container-baseimage/log"
 
-	"github.com/osixia/kube-vip-detector/cmd"
-	"github.com/osixia/kube-vip-detector/config"
+	"github.com/osixia/kube-network-detector/cmd"
+	"github.com/osixia/kube-network-detector/config"
 )
 
 func main() {

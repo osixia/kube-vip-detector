@@ -1,7 +1,7 @@
 /vendor/
 /build/vendor/
 /bin/
-/kube-vip-detector
+/kube-network-detector
 /build/build
 /digests.txt
 /sbom.spdx.json

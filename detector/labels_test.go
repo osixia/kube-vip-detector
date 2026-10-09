@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	ktesting "k8s.io/client-go/testing"
 
-	"github.com/osixia/kube-vip-detector/config"
+	"github.com/osixia/kube-network-detector/config"
 )
 
 func TestLabelsMoveAndClear(t *testing.T) {

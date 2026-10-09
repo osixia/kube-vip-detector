@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"github.com/osixia/kube-vip-detector/config"
+	"github.com/osixia/kube-network-detector/config"
 )
 
 func TestEligibilityTransitions(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/osixia/kube-vip-detector/detector"
+	"github.com/osixia/kube-network-detector/detector"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -27,6 +27,7 @@ func TestRunReturnsListenError(t *testing.T) {
 	service, err := detector.New(client, detector.Identity{
 		Node: "node", Namespace: "namespace", PodUID: "instance",
 	}, detector.Options{
+		VIPs:             []string{"203.0.113.10"},
 		Key:              strings.Repeat("a", 64),
 		VIPLabelPrefix:   "example.net/vip-",
 		Port:             listener.Addr().(*net.TCPAddr).Port,

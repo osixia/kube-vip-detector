@@ -27,6 +27,11 @@ func (d *Detector) Run(parent context.Context) error {
 	key := d.key
 	node := d.node
 
+	if len(vips) == 0 {
+		d.runPeers(ctx)
+		return nil
+	}
+
 	// Authenticated probe server
 	server := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(options.Port)),
@@ -60,6 +65,15 @@ func (d *Detector) Run(parent context.Context) error {
 			defer workers.Done()
 			d.run(ctx, ip)
 		}(ip)
+	}
+
+	if len(options.Peers) != 0 {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			d.runPeers(ctx)
+		}()
+
 	}
 
 	log.Infof("started node=%q targets=%d port=%d dryRun=%t", node, len(vips), options.Port, options.DryRun)

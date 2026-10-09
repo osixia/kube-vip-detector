@@ -8,4 +8,3 @@ bin
 vendor
 deploy
 *.md
-kube-vip-detector

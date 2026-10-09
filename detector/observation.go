@@ -24,7 +24,9 @@ func (state *observation) update(node string, err error, successThreshold, failu
 	if err != nil {
 		state.candidate = ""
 		state.successes = 0
-		state.failures++
+		if state.failures < failureThreshold {
+			state.failures++
+		}
 		return state.failures >= failureThreshold, ""
 	}
 
@@ -34,7 +36,9 @@ func (state *observation) update(node string, err error, successThreshold, failu
 		state.successes = 0
 	}
 
-	state.successes++
+	if state.successes < successThreshold {
+		state.successes++
+	}
 	return state.successes >= successThreshold, node
 }
 

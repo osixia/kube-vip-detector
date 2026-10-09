@@ -1,5 +1,5 @@
-// Package detector identifies nodes receiving IPv4 VIP traffic and maintains
-// Kubernetes node labels using authenticated probes and per-VIP leader election.
+// Package detector identifies nodes receiving IPv4/IPv6 VIP traffic, tests peer TCP
+// connectivity and maintains Kubernetes node labels.
 package detector
 
 import (
@@ -38,18 +38,23 @@ func New(client kubernetes.Interface, identity Identity, options Options) (*Dete
 	if client == nil {
 		return nil, errors.New("kubernetes client is required")
 	}
-	if identity.Node == "" || identity.Namespace == "" || identity.PodUID == "" {
+	if identity.Node == "" || (len(options.VIPs) != 0 && (identity.Namespace == "" || identity.PodUID == "")) {
 		return nil, errors.New("node, namespace and pod UID are required")
 	}
 	if err := options.Validate(); err != nil {
 		return nil, err
 	}
 
-	key, err := hex.DecodeString(options.Key)
-	if err != nil {
-		return nil, err
+	var key []byte
+	if len(options.VIPs) != 0 {
+		var err error
+		key, err = hex.DecodeString(options.Key)
+		if err != nil {
+			return nil, err
+		}
 	}
 	options.VIPs = slices.Clone(options.VIPs)
+	options.Peers = slices.Clone(options.Peers)
 
 	return &Detector{
 		client:    client,

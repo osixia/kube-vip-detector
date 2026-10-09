@@ -17,7 +17,7 @@ import (
 
 // One Lease per VIP, shared by all eligible nodes.
 func leaseName(ip string) string {
-	return fmt.Sprintf("kube-vip-detector-%x", sha256.Sum256([]byte(ip)))[:43]
+	return fmt.Sprintf("kube-network-detector-%x", sha256.Sum256([]byte(ip)))[:43]
 }
 
 func (d *Detector) run(ctx context.Context, ip string) {

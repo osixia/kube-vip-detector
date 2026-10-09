@@ -14,34 +14,34 @@ func main() {
 
 	// image
 
-	var KubeVipDetectorImage = &config.Image{
+	var KubeNetworkDetectorImage = &config.Image{
 		BaseImage:    "scratch",
 		Distribution: config.None,
 
-		Name:        "osixia/kube-vip-detector",
-		Description: "Kube Vip Detector container image 🐳📡🌴",
+		Name:        "osixia/kube-network-detector",
+		Description: "Kube Network Detector container image 🐳📡🌴",
 
-		Url:           "https://github.com/osixia/kube-vip-detector",
-		Documentation: "https://github.com/osixia/kube-vip-detector",
-		Source:        "https://github.com/osixia/kube-vip-detector",
+		Url:           "https://github.com/osixia/kube-network-detector",
+		Documentation: "https://github.com/osixia/kube-network-detector",
+		Source:        "https://github.com/osixia/kube-network-detector",
 
-		Authors: "The osixia/kube-vip-detector maintainers",
+		Authors: "The osixia/kube-network-detector maintainers",
 		Vendor:  "Osixia",
 
 		Licences: "MIT",
 	}
 
 	config.Images = []*config.Image{
-		KubeVipDetectorImage,
+		KubeNetworkDetectorImage,
 	}
 
-	config.DefaultImage = KubeVipDetectorImage
+	config.DefaultImage = KubeNetworkDetectorImage
 
 	// github
 
 	config.ProjectGithubRepo = &config.GithubRepo{
 		Organization: "osixia",
-		Project:      "kube-vip-detector",
+		Project:      "kube-network-detector",
 	}
 
 	// custom function

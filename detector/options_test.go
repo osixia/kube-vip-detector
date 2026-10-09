@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/osixia/kube-vip-detector/config"
+	"github.com/osixia/kube-network-detector/config"
 )
 
 func validOptions() Options {
-	return Options{Key: strings.Repeat("a", 64), VIPLabelPrefix: config.DefaultVIPLabelPrefix, Port: 9876, Interval: time.Second, Timeout: time.Second, SuccessThreshold: 2, FailureThreshold: 3}
+	return Options{VIPs: []string{"203.0.113.10"}, Key: strings.Repeat("a", 64), VIPLabelPrefix: config.DefaultVIPLabelPrefix, Port: 9876, Interval: time.Second, Timeout: time.Second, SuccessThreshold: 2, FailureThreshold: 3}
 }
 
 func TestOptionsValidateKey(t *testing.T) {
@@ -41,7 +41,7 @@ func TestOptionsValidateVIPs(t *testing.T) {
 		value []string
 		valid bool
 	}{
-		{[]string{"198.51.100.20", "203.0.113.10"}, true}, {nil, true}, {[]string{}, true},
+		{[]string{"198.51.100.20", "203.0.113.10"}, true}, {nil, false}, {[]string{}, false},
 		{[]string{"203.0.113.10", "203.0.113.10"}, false}, {[]string{"127.0.0.1"}, false},
 		{[]string{"::1"}, false}, {[]string{"0.0.0.0"}, false}, {[]string{"224.0.0.1"}, false},
 		{[]string{""}, false}, {[]string{"bad-ip"}, false},

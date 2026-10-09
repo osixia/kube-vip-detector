@@ -6,12 +6,13 @@ import (
 
 // global variables
 var (
-	ImageName = "osixia/kube-vip-detector"
+	ImageName = "osixia/kube-network-detector"
 	ImageTag  = "develop"
 
-	EnvironmentPrefix = "KUBE_VIP_DETECTOR"
+	EnvironmentPrefix = "KUBE_NETWORK_DETECTOR"
 
-	DefaultVIPLabelPrefix = "kube-vip-detector/"
+	DefaultVIPLabelPrefix  = "kube-network-detector/"
+	DefaultPeerLabelPrefix = "kube-network-detector/peer-"
 )
 
 // logger environment configuration
