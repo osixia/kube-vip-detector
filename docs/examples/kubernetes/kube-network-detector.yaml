@@ -17,6 +17,9 @@ rules:
   - apiGroups: [""]
     resources: [nodes]
     verbs: [get, list, patch]
+  - apiGroups: [network.osixia.net]
+    resources: [vips, peers]
+    verbs: [list, watch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -99,8 +102,8 @@ spec:
           image: osixia/kube-network-detector
           imagePullPolicy: IfNotPresent
           args:
-            # Optional: install docs/crds/ and crd-reader-rbac.yaml first.
-            # - --watch-crds=true
+            # CRD discovery is enabled by default; install docs/crds/ first.
+            # Add --disable-crds to use only static targets.
             - --vips=203.0.113.10,198.51.100.20
             - --vip-label-prefix=kube-network-detector/
             - --peers=database=10.0.0.20:5432

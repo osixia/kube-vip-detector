@@ -75,6 +75,7 @@ spec:
           image: osixia/kube-network-detector
           imagePullPolicy: IfNotPresent
           args:
+            - --disable-crds
             - --peers=database=10.0.0.20:5432
             - --peer-label-prefix=kube-network-detector/peer-
             - --log-level=info

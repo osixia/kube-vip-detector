@@ -22,6 +22,7 @@ import (
 
 type flags struct {
 	detector.Options
+	DisableCRDs bool
 }
 
 var cmdFlags = &flags{}
@@ -42,6 +43,7 @@ var cmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
 		helpers.Mustf(cnf.Unmarshal(&cmdFlags.Options), "Invalid detector configuration")
+		cmdFlags.WatchCRDs = !cnf.GetBool("disable-crds")
 
 		return cmdlog.HandleFlags(cmd)
 	},
@@ -66,12 +68,12 @@ func init() {
 	// flags
 	cmd.Flags().SortFlags = false
 
-	cmd.Flags().StringSliceVarP(&cmdFlags.VIPs, "vips", "", nil, "comma-separated canonical IPv4/IPv6 VIPs; flag may be repeated, omit to disable VIP detection")
+	cmd.Flags().StringSliceVarP(&cmdFlags.VIPs, "vips", "", nil, "comma-separated canonical IPv4/IPv6 VIPs; flag may be repeated")
 	cmd.Flags().StringVar(&cmdFlags.VIPLabelPrefix, "vip-label-prefix", config.DefaultVIPLabelPrefix, "literal prefix prepended to each VIP label")
 
 	cmd.Flags().StringSliceVar(&cmdFlags.Peers, "peers", nil, "named TCP peers: database=10.0.0.20:5432,api=[2001:db8::1]:443")
 	cmd.Flags().StringVar(&cmdFlags.PeerLabelPrefix, "peer-label-prefix", config.DefaultPeerLabelPrefix, "literal prefix prepended to each peer name")
-	cmd.Flags().BoolVar(&cmdFlags.WatchCRDs, "watch-crds", false, "watch namespaced VIP and Peer resources across the cluster in addition to flags")
+	cmd.Flags().BoolVar(&cmdFlags.DisableCRDs, "disable-crds", false, "disable VIP and Peer CRD discovery; use only targets configured through flags")
 
 	cmd.Flags().StringVar(&cmdFlags.Key, "key", "", "hex-encoded 32-byte HMAC key (64 hexadecimal characters)")
 	cmd.Flags().IntVar(&cmdFlags.Port, "port", 9876, "direct node TCP probe port")

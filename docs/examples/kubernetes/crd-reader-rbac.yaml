@@ -1,5 +1,6 @@
 # Additional permissions for the existing detector ServiceAccount.
-# Apply the CRDs, this RBAC, then enable --watch-crds on the combined DaemonSet.
+# For custom deployments: install both CRDs and apply this RBAC before starting.
+# The combined DaemonSet example already includes these reader permissions.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

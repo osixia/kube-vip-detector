@@ -17,7 +17,7 @@ import (
 // Options configures VIP and peer probes and node label updates. New validates
 // settings for configured targets without applying defaults.
 type Options struct {
-	WatchCRDs        bool          `mapstructure:"watch-crds"`
+	WatchCRDs        bool          `mapstructure:"-"`
 	Peers            []string      `mapstructure:"peers"`
 	PeerLabelPrefix  string        `mapstructure:"peer-label-prefix"`
 	VIPs             []string      `mapstructure:"vips"`

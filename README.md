@@ -95,12 +95,13 @@ leader election and local VIP eligibility; multiple nodes can reach the same pee
 
 ```sh
 kube-network-detector \
+  --disable-crds \
   --peers='database=10.0.0.20:5432,api=[2001:db8::1]:443' \
   --peer-label-prefix=network.example.net/peer-
 ```
 
 Set `KUBE_NETWORK_DETECTOR_NODE_NAME` with the Downward API, as in the example
-manifest. VIP detection additionally requires `KUBE_NETWORK_DETECTOR_POD_NAMESPACE`
+manifest. VIP detection and CRD discovery additionally require `KUBE_NETWORK_DETECTOR_POD_NAMESPACE`
 and `KUBE_NETWORK_DETECTOR_POD_UID`.
 Each peer requires a unique name. The name and prefix together must form a valid
 Kubernetes label key, distinct from configured VIP label keys.
@@ -139,6 +140,7 @@ Secret or probe server port. The steps below describe the combined deployment.
 
 Before deploying:
 
+- Install both CRDs from `docs/crds/`, or add `--disable-crds` for static-only operation.
 - Replace the example VIPs and peers in the DaemonSet's `args`.
 - Remove `--vips` or `--peers` if only one detection mode is needed.
 - Check that TCP port 9876 is free on each node and reachable through the VIPs
@@ -151,6 +153,9 @@ Create a shared HMAC key, then apply the manifest:
 kubectl create namespace kube-network-detector
 kubectl -n kube-network-detector create secret generic kube-network-detector-auth \
   --from-literal=hmac-key="$(openssl rand -hex 32)"
+kubectl apply -f docs/crds/
+kubectl wait --for=condition=Established --timeout=60s \
+  crd/vips.network.osixia.net crd/peers.network.osixia.net
 kubectl apply -f docs/examples/kubernetes/kube-network-detector.yaml
 kubectl -n kube-network-detector rollout status daemonset/kube-network-detector
 kubectl -n kube-network-detector logs -l app.kubernetes.io/name=kube-network-detector --prefix --tail=100
@@ -171,13 +176,13 @@ connections; they do not verify VIP routing or successful label updates.
 
 The CLI runs inside Kubernetes and uses in-cluster credentials. The DaemonSet
 supplies identity variables through the Downward API. The node name is always
-required; namespace and pod UID are required only for VIP detection:
+required; namespace and pod UID are required for VIP detection or default CRD discovery:
 
 | Variable | Source | Required for |
 | --- | --- | --- |
 | `KUBE_NETWORK_DETECTOR_NODE_NAME` | `spec.nodeName` | VIPs and peers |
-| `KUBE_NETWORK_DETECTOR_POD_NAMESPACE` | `metadata.namespace` | VIPs |
-| `KUBE_NETWORK_DETECTOR_POD_UID` | `metadata.uid` | VIPs |
+| `KUBE_NETWORK_DETECTOR_POD_NAMESPACE` | `metadata.namespace` | VIPs or CRD discovery |
+| `KUBE_NETWORK_DETECTOR_POD_UID` | `metadata.uid` | VIPs or CRD discovery |
 
 | Option | Default | Purpose |
 | --- | --- | --- |
@@ -187,7 +192,7 @@ required; namespace and pod UID are required only for VIP detection:
 | `--port` | `9876` | VIP responder TCP port on each node |
 | `--peers` | Empty | Named IPv4/IPv6 TCP endpoints (`name=IP:port`); repeatable |
 | `--peer-label-prefix` | `kube-network-detector/peer-` | Literal prefix for each peer name |
-| `--watch-crds` | `false` | Watch namespaced VIP and Peer resources across all namespaces, in addition to static flags |
+| `--disable-crds` | `false` | Disable default VIP and Peer CRD discovery; use only static targets |
 | `--interval` | `5s` | Delay between probes and interval for local-address checks |
 | `--timeout` | `2s` | Timeout for each probe |
 | `--success-threshold` | `2` | Consecutive VIP successes identifying the same node, or peer TCP successes |
@@ -199,8 +204,8 @@ image reference, such as `osixia/kube-network-detector`
 (`osixia/kube-network-detector:develop` in an unversioned local build).
 
 Omit `--vips`, use `--vips=`, or set an empty `KUBE_NETWORK_DETECTOR_VIPS` for
-peer-only operation when peers are configured. The key and VIP pod identity are
-required only when VIPs are configured.
+peer-only operation when peers are configured and `--disable-crds` is set. The key
+and VIP pod identity are required when VIPs are configured or CRD discovery is enabled.
 Duplicates, whitespace, noncanonical addresses, unspecified, loopback, multicast,
 link-local, zoned IPv6 and IPv4-mapped IPv6 VIPs are rejected. The VIP responder
 port must be between 1024 and 65535; peer ports must be between 1 and 65535.
@@ -245,9 +250,11 @@ prefix and default label prefix are defined in [config/config.go](config/config.
 
 ### Targets declared in Kubernetes
 
-Enable `--watch-crds` (or `KUBE_NETWORK_DETECTOR_WATCH_CRDS=true`) to discover
-`network.osixia.net/v1alpha1` resources across all namespaces. This is opt-in;
-existing flag-only deployments require no CRDs or additional permissions.
+The CLI discovers `network.osixia.net/v1alpha1` resources across all namespaces
+by default. Use `--disable-crds` (no value needed), or
+`KUBE_NETWORK_DETECTOR_DISABLE_CRDS=true`, to use only static targets without
+CRDs or CRD API permissions. `--disable-crds=false` explicitly keeps discovery
+enabled and overrides the environment variable.
 CRD targets are added to `--vips` and `--peers`, not substituted for them.
 An initially empty target list is allowed in CRD mode.
 
@@ -257,10 +264,11 @@ Install both namespaced CRDs and grant the detector read permissions:
 kubectl apply -f docs/crds/
 kubectl wait --for=condition=Established --timeout=60s \
   crd/vips.network.osixia.net crd/peers.network.osixia.net
-kubectl apply -f docs/examples/kubernetes/crd-reader-rbac.yaml
 ```
 
-Then add `--watch-crds=true` to the combined DaemonSet's arguments and apply it.
+Then apply the combined DaemonSet manifest, which includes CRD reader RBAC.
+Custom deployments can use `docs/examples/kubernetes/crd-reader-rbac.yaml` to
+grant the existing detector ServiceAccount these permissions.
 Use the combined deployment even when only Peer objects initially exist: CRD mode
 keeps the authenticated VIP responder running so future VIP objects work without
 another rollout. It requires the HMAC key, responder port, pod namespace and UID,
